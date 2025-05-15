@@ -3,25 +3,30 @@
 #include "Vector2.hpp"
 #include "lua.hpp"
 
-int getVariable(lua_State* L, std::string_view variableName) {
-    lua_getglobal(L, variableName.data());
-    auto x = lua_tonumber(L, -1);
-    return static_cast<int>(x);
-}
+#define SOL_ALL_SAFETIES_ON 1
+#include "sol/sol.hpp"
 
 int main() {
-    lua_State* L = luaL_newstate();
-    luaL_dostring(L, "x = 42");
-    {
-        int x = getVariable(L, "x");
-        std::printf("x = %d\n", x);
+    sol::state lua;
+    lua.open_libraries(sol::lib::base, sol::lib::io, sol::lib::table, sol::lib::math);
+
+    auto result = lua.safe_script_file("scripts/jumping_buddy.lua");
+    if (!result.valid()) {
+        sol::error err = result;
+        printf("Error loading script: %s\n", err.what());
+        return 1;
     }
-    luaL_dostring(L, "x = x + 8");
-    {
-        int x = getVariable(L, "x");
-        std::printf("x = %d\n", x);
+    game::GameObject player;
+    player.setXY(game::Vector2{5.f, 5.f});
+    sol::table myData = result;
+    while(true) {
+        auto result = myData["update"](&player, 0.16666f);
+        if (!result.valid()) {
+            sol::error err = result;
+            printf("Error script: %s\n", err.what());
+            break;
+        }
     }
 
-    lua_close(L);
     return 0;
 }
